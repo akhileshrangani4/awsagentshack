@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conspiracy Board — Agent</title>
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: 'Courier New', monospace;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       START SCREEN
+    ============================================================ */
+    #start-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #1a1a2e;
+    }
+
+    .start-card {
+      background: #16213e;
+      border: 2px solid #e94560;
+      border-radius: 8px;
+      padding: 48px 56px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(233, 69, 96, 0.2);
+    }
+
+    .start-card h1 {
+      font-size: 28px;
+      font-weight: bold;
+      color: #e94560;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+    }
+
+    .start-card .subtitle {
+      color: #888;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 36px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #e94560;
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #0f0f1e;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #e94560;
+      box-shadow: 0 0 8px rgba(233, 69, 96, 0.3);
+    }
+
+    .form-group input::placeholder {
+      color: #555;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: #e94560;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-submit:hover {
+      background: #ff6b6b;
+      box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+    }
+
+    /* ============================================================
+       BOARD SCREEN
+    ============================================================ */
+    #board-screen {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* Toolbar */
+    #toolbar {
+      background: #0f0f23;
+      border-bottom: 2px solid #e94560;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+
+    #toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* View Toggle */
+    #view-toggle {
+      display: flex;
+      gap: 0;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #e94560;
+    }
+
+    .toggle-btn {
+      padding: 6px 16px;
+      border: none;
+      background: transparent;
+      color: #888;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: 'Courier New', monospace;
+    }
+
+    .toggle-btn.active {
+      background: #e94560;
+      color: white;
+    }
+
+    .toggle-btn:hover:not(.active) {
+      color: #e94560;
+      background: rgba(233, 69, 96, 0.1);
+    }
+
+    #toolbar h2 {
+      font-size: 16px;
+      font-weight: bold;
+      color: #e94560;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    #round-indicator {
+      background: #e94560;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    #round-indicator.complete {
+      background: #4ade80;
+      color: #1a1a2e;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    #status-text {
+      font-size: 12px;
+      color: #888;
+    }
+
+    /* Main content area */
+    #main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Graph container */
+    #graph-container {
+      flex: 1;
+      position: relative;
+      background: #0f0f1e;
+    }
+
+    #graph-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ============================================================
+       CORK BOARD VIEW
+    ============================================================ */
+    #cork-board {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      /* Cork board texture — CSS gradient that mimics cork */
+      background:
+        repeating-conic-gradient(#b8860b 0% 25%, transparent 0% 50%) 0 0 / 20px 20px,
+        linear-gradient(135deg, #c4956a 0%, #b8860b 30%, #d4a76a 60%, #c4956a 100%);
+      background-color: #c4956a;
+      overflow: hidden;
+      border: 12px solid #5c3317;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.3);
+    }
+
+    .cork-card {
+      position: absolute;
+      background: #fffff0;  /* slightly yellowed paper */
+      padding: 12px 16px;
+      min-width: 120px;
+      max-width: 200px;
+      box-shadow: 2px 3px 8px rgba(0,0,0,0.3);
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #333;
+      z-index: 2;
+      cursor: grab;
+      transform-origin: center top;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .cork-card:hover {
+      transform: scale(1.05) !important;
+      box-shadow: 4px 6px 16px rgba(0,0,0,0.4);
+      z-index: 10;
+    }
+
+    .cork-card::before {
+      /* Red pushpin */
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 14px;
+      height: 14px;
+      background: #e94560;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      border: 2px solid #c0392b;
+    }
+
+    .cork-card .card-label {
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #1a1a2e;
+    }
+
+    .cork-card .card-topic {
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .cork-card.topic-a {
+      border-top: 3px solid #e94560;
+    }
+
+    .cork-card.topic-b {
+      border-top: 3px solid #0f3460;
+    }
+
+    /* Evidence photo cards */
+    .cork-card.evidence {
+        background: #fff;
+        border: 3px solid #e94560;
+        padding: 6px;
+        min-width: 160px;
+        max-width: 220px;
+        box-shadow: 3px 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .cork-card.evidence::before {
+        /* Yellow pushpin for evidence */
+        background: #f1c40f;
+        border-color: #d4ac0d;
+    }
+
+    .cork-card.evidence img {
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        display: block;
+        border: 1px solid #ccc;
+        margin-bottom: 6px;
+    }
+
+    .cork-card.evidence .card-label {
+        font-size: 11px;
+        color: #e94560;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+
+    .cork-card.evidence .card-clue {
+        font-size: 11px;
+        color: #333;
+        line-height: 1.4;
+        font-style: italic;
+    }
+
+    /* Red string styling */
+    #red-strings line {
+      stroke: #cc0000;
+      stroke-width: 2;
+      opacity: 0.7;
+      filter: drop-shadow(0 0 1px rgba(200,0,0,0.5));
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 350px;
+      background: #16213e;
+      border-left: 2px solid #e94560;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Narration panel */
+    #narration-panel {
+      flex: 6;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-bottom: 1px solid #e94560;
+    }
+
+    .panel-header {
+      background: #0f3460;
+      padding: 10px 16px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #e94560;
+      font-weight: bold;
+      flex-shrink: 0;
+      text-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
+    }
+
+    #narration-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      background: #0f3460;
+      scroll-behavior: smooth;
+    }
+
+    #narration-content::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #narration-content::-webkit-scrollbar-thumb {
+      background: #e94560;
+      border-radius: 2px;
+    }
+
+    /* Status log */
+    #status-log-panel {
+      flex: 4;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #status-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px;
+      background: #0d0d1a;
+    }
+
+    #status-log::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #status-log::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+
+    .status-line {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #4ade80;
+      padding: 2px 0;
+      opacity: 0.8;
+    }
+
+    /* Narration entries */
+    .narration-entry {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: rgba(233, 69, 96, 0.1);
+      border-left: 3px solid #e94560;
+      border-radius: 0 4px 4px 0;
+      animation: fadeIn 0.5s ease-in;
+    }
+
+    .narration-round {
+      display: inline-block;
+      background: #e94560;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .narration-entry p {
+      margin: 6px 0 0 0;
+      line-height: 1.5;
+      color: #e0e0e0;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.05); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       START SCREEN
+  ============================================================ -->
+  <div id="start-screen">
+    <div class="start-card">
+      <h1>Conspiracy Board</h1>
+      <p class="subtitle">Uncover hidden connections</p>
+      <form id="start-form">
+        <div class="form-group">
+          <label for="topic-a">Topic A</label>
+          <input type="text" id="topic-a" placeholder="e.g. NASA" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="topic-b">Topic B</label>
+          <input type="text" id="topic-b" placeholder="e.g. Pizza Hut" required autocomplete="off">
+        </div>
+        <button type="submit" class="btn-submit">Investigate</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       BOARD SCREEN
+  ============================================================ -->
+  <div id="board-screen">
+    <div id="toolbar">
+      <div id="toolbar-left">
+        <h2>Conspiracy Board</h2>
+        <div id="round-indicator">Connecting...</div>
+        <span id="status-text">Initializing agent...</span>
+      </div>
+      <div id="view-toggle">
+        <button id="btn-graph" class="toggle-btn active" onclick="setView('graph')">
+          GRAPH VIEW
+        </button>
+        <button id="btn-board" class="toggle-btn" onclick="setView('board')">
+          CONSPIRACY BOARD
+        </button>
+      </div>
+    </div>
+    <div id="main-content">
+      <div id="graph-container">
+        <div id="graph-canvas"></div>
+        <div id="cork-board" style="display:none;">
+          <svg id="red-strings" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;"></svg>
+          <div id="cork-items"></div>
+        </div>
+      </div>
+      <div id="sidebar">
+        <div id="narration-panel">
+          <div class="panel-header">Intelligence Briefing</div>
+          <div id="narration-content"></div>
+        </div>
+        <div id="status-log-panel">
+          <div class="panel-header">Activity Log</div>
+          <div id="status-log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // Globals
+    // ============================================================
+    let ws = null;
+    let visNetwork = null;
+    let visNodes = null;
+    let visEdges = null;
+    let currentTopicA = '';
+    let currentTopicB = '';
+
+    // ============================================================
+    // Form Submit
+    // ============================================================
+    document.getElementById('start-form').onsubmit = async (e) => {
+      e.preventDefault();
+      currentTopicA = document.getElementById('topic-a').value.trim();
+      currentTopicB = document.getElementById('topic-b').value.trim();
+
+      // Transition screens
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('board-screen').style.display = 'flex';
+
+      // Initialize vis.js graph
+      initGraph();
+
+      addStatus(`Starting investigation: "${currentTopicA}" vs "${currentTopicB}"`);
+      updateRoundIndicator(0, 3);
+
+      // Start run via API
+      let run_id;
+      try {
+        const res = await fetch('/run', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({topic_a: currentTopicA, topic_b: currentTopicB, rounds: 3})
+        });
+        const data = await res.json();
+        run_id = data.run_id;
+      } catch (err) {
+        addStatus(`ERROR: Failed to start run — ${err.message}`);
+        return;
+      }
+
+      addStatus(`Run started (ID: ${run_id}), connecting WebSocket...`);
+
+      // Connect WebSocket (auto-detect ws:// vs wss:// for Render HTTPS)
+      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${wsProto}//${location.host}/ws/${run_id}`);
+      ws.onmessage = (e) => {
+        try {
+          handleEvent(JSON.parse(e.data));
+        } catch (err) {
+          addStatus(`Parse error: ${err.message}`);
+        }
+      };
+      ws.onclose = () => addStatus('Connection closed');
+      ws.onerror = () => addStatus('WebSocket error');
+    };
+
+    // ============================================================
+    // vis.js Graph Initialization
+    // ============================================================
+    function initGraph() {
+      visNodes = new vis.DataSet();
+      visEdges = new vis.DataSet();
+
+      const container = document.getElementById('graph-canvas');
+      const data = {nodes: visNodes, edges: visEdges};
+      const options = {
+        nodes: {
+          shape: 'box',
+          font: {color: '#ffffff', size: 14},
+          color: {
+            background: '#e94560',
+            border: '#ff6b6b',
+            highlight: {background: '#ff6b6b', border: '#ffffff'}
+          },
+          borderWidth: 2,
+          shadow: true,
+          margin: 10
+        },
+        edges: {
+          color: {color: '#e94560', highlight: '#ff6b6b'},
+          width: 2,
+          font: {color: '#aaaaaa', size: 10, strokeWidth: 0},
+          arrows: {to: {enabled: true, scaleFactor: 0.5}},
+          smooth: {type: 'continuous'}
+        },
+        physics: {
+          forceAtlas2Based: {
+            gravitationalConstant: -120,
+            centralGravity: 0.002,
+            springLength: 350,
+            springConstant: 0.01,
+            damping: 0.4
+          },
+          solver: 'forceAtlas2Based',
+          stabilization: {iterations: 80},
+          maxVelocity: 30
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 200,
+          navigationButtons: false,
+          keyboard: true
+        },
+        background: {color: '#0f0f1e'}
+      };
+      visNetwork = new vis.Network(container, data, options);
+    }
+
+    // ============================================================
+    // WebSocket Event Handler
+    // ============================================================
+    function handleEvent(event) {
+      switch (event.type) {
+        case 'round_start':
+          updateRoundIndicator(event.round, event.total_rounds);
+          addStatus(`Starting Round ${event.round}/${event.total_rounds}...`);
+          break;
+
+        case 'senso_query':
+          addStatus(`Querying knowledge base (context: ${event.context_length || 0} chars)`);
+          break;
+
+        case 'search_complete':
+          addStatus(`Found ${event.result_count} search results`);
+          break;
+
+        case 'extraction_complete':
+          const eCount = (event.entities_a || []).length + (event.entities_b || []).length;
+          const cCount = (event.connections || []).length;
+          addStatus(`Extracted ${eCount} entities, ${cCount} connections`);
+          break;
+
+        case 'graph_update':
+          // Add nodes
+          for (const entity of (event.entities || [])) {
+            const nodeId = entity.name;
+            if (!visNodes.get(nodeId)) {
+              const isTopicA = entity.topic === currentTopicA;
+              const color = isTopicA
+                ? {background: '#e94560', border: '#ff6b6b', highlight: {background: '#ff6b6b', border: '#ffffff'}}
+                : {background: '#0f3460', border: '#4a90d9', highlight: {background: '#4a90d9', border: '#ffffff'}};
+              visNodes.add({
+                id: nodeId,
+                label: entity.name,
+                group: entity.topic,
+                title: `Topic: ${entity.topic}`,
+                color: color
+              });
+            }
+          }
+          // Add edges
+          for (const conn of (event.connections || [])) {
+            const edgeId = `${conn.from}--${conn.to}`;
+            if (!visEdges.get(edgeId)) {
+              visEdges.add({
+                id: edgeId,
+                from: conn.from,
+                to: conn.to,
+                label: conn.relationship ? conn.relationship.substring(0, 30) : '',
+                title: conn.relationship || '',
+                value: conn.suspicion_level || 5
+              });
+            }
+          }
+          addStatus(`Graph: ${event.entity_count || 0} entities`);
+
+          // Also populate cork board (both views receive data simultaneously)
+          for (const entity of (event.entities || [])) {
+            addCorkBoardItem(entity.name, entity.topic);
+          }
+          for (const conn of (event.connections || [])) {
+            addCorkBoardConnection(conn.from, conn.to, conn.relationship);
+          }
+          break;
+
+        case 'image_clue':
+          addStatus(`[EVIDENCE] Reka Vision clue found (Round ${event.round})`);
+          addEvidenceCard(event.image_url, event.clue_text, event.round);
+          addEvidenceNode(event.image_url, event.clue_text, event.round);
+          break;
+
+        case 'narration':
+          addNarration(event.text, event.round);
+          break;
+
+        case 'complete':
+          addStatus(`COMPLETE: ${event.total_entities} entities, ${event.total_connections} connections`);
+          addNarration('THE CONSPIRACY IS REVEALED. All connections mapped.', 0);
+          updateRoundIndicator(event.total_rounds || 3, event.total_rounds || 3, true);
+          document.getElementById('status-text').textContent = 'Investigation complete';
+          break;
+
+        case 'error':
+          addStatus(`ERROR: ${event.message}`);
+          break;
+
+        default:
+          addStatus(`Event: ${event.type}`);
+      }
+    }
+
+    // ============================================================
+    // Narration Panel
+    // ============================================================
+    function addNarration(text, round) {
+      const panel = document.getElementById('narration-content');
+      const entry = document.createElement('div');
+      entry.className = 'narration-entry';
+      if (round > 0) {
+        const label = document.createElement('span');
+        label.className = 'narration-round';
+        label.textContent = `ROUND ${round}`;
+        entry.appendChild(label);
+      }
+      const p = document.createElement('p');
+      entry.appendChild(p);
+      panel.appendChild(entry);
+      panel.scrollTop = panel.scrollHeight;
+
+      // Typewriter effect
+      let i = 0;
+      const speed = 20; // ms per character
+      function typeChar() {
+        if (i < text.length) {
+          p.textContent += text.charAt(i);
+          i++;
+          panel.scrollTop = panel.scrollHeight;
+          setTimeout(typeChar, speed);
+        }
+      }
+      typeChar();
+    }
+
+    function addStatus(msg) {
+      const log = document.getElementById('status-log');
+      const line = document.createElement('div');
+      line.className = 'status-line';
+      line.textContent = `> ${msg}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // ============================================================
+    // View Toggle
+    // ============================================================
+    let currentView = 'graph';  // 'graph' or 'board'
+
+    function setView(view) {
+      currentView = view;
+      const graphCanvas = document.getElementById('graph-canvas');
+      const corkBoard = document.getElementById('cork-board');
+      const btnGraph = document.getElementById('btn-graph');
+      const btnBoard = document.getElementById('btn-board');
+
+      if (view === 'graph') {
+        graphCanvas.style.display = 'block';
+        corkBoard.style.display = 'none';
+        btnGraph.classList.add('active');
+        btnBoard.classList.remove('active');
+        // Redraw vis.js to fix any sizing issues after display change
+        if (visNetwork) visNetwork.fit();
+      } else {
+        graphCanvas.style.display = 'none';
+        corkBoard.style.display = 'block';
+        btnGraph.classList.remove('active');
+        btnBoard.classList.add('active');
+      }
+    }
+
+    // Tab key toggles between views
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab' && e.target === document.body) {
+        e.preventDefault();
+        setView(currentView === 'graph' ? 'board' : 'graph');
+      }
+    });
+
+    // ============================================================
+    // Cork Board Renderer
+    // ============================================================
+    const corkItems = {};  // nodeId -> {x, y, element}
+
+    function addCorkBoardItem(name, topic) {
+      if (corkItems[name]) return;  // already exists
+
+      const container = document.getElementById('cork-items');
+      const board = document.getElementById('cork-board');
+      const card = document.createElement('div');
+      card.className = `cork-card topic-${topic === currentTopicA ? 'a' : 'b'}`;
+
+      // Use window dimensions as reference since cork board may be display:none
+      const boardW = board.offsetWidth || (window.innerWidth - 350 - 24);
+      const boardH = board.offsetHeight || (window.innerHeight - 60 - 24);
+      // Grid-based placement: distribute cards across the board
+      const itemCount = Object.keys(corkItems).length;
+      const cols = Math.ceil(Math.sqrt(itemCount + 4));
+      const cellW = Math.max(180, boardW / (cols + 1));
+      const cellH = Math.max(140, boardH / (cols + 1));
+      const col = itemCount % cols;
+      const row = Math.floor(itemCount / cols);
+      const x = 40 + col * cellW + (Math.random() - 0.5) * 40;
+      const y = 40 + row * cellH + (Math.random() - 0.5) * 30;
+
+      // Random slight rotation for organic feel (-5 to +5 degrees)
+      const rotation = (Math.random() - 0.5) * 10;
+
+      card.style.left = `${x}px`;
+      card.style.top = `${y}px`;
+      card.style.transform = `rotate(${rotation}deg)`;
+
+      card.innerHTML = `
+        <div class="card-label">${name}</div>
+        <div class="card-topic">${topic}</div>
+      `;
+
+      card.id = `cork-${name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      container.appendChild(card);
+
+      // Store position for red string connections (center-x, top-y where pin is)
+      corkItems[name] = {
+        x: x + 60,  // center of card (approx)
+        y: y + 6,   // top of card (where pin is)
+        element: card
+      };
+
+      // Make draggable
+      makeDraggable(card, name);
+
+      // Animate entry
+      card.style.opacity = '0';
+      card.style.transform = `rotate(${rotation}deg) scale(0.5)`;
+      requestAnimationFrame(() => {
+        card.style.transition = 'all 0.4s ease-out';
+        card.style.opacity = '1';
+        card.style.transform = `rotate(${rotation}deg) scale(1)`;
+      });
+    }
+
+    let evidenceCount = 0;
+
+    function addEvidenceCard(imageUrl, clueText, round) {
+      evidenceCount++;
+      const container = document.getElementById('cork-items');
+      const board = document.getElementById('cork-board');
+      const card = document.createElement('div');
+      card.className = 'cork-card evidence';
+
+      const boardW = board.offsetWidth || (window.innerWidth - 350 - 24);
+      const boardH = board.offsetHeight || (window.innerHeight - 60 - 24);
+      // Place evidence cards in bottom-right zone, spaced apart
+      const evIdx = evidenceCount - 1;
+      const x = boardW * 0.55 + (evIdx % 3) * 200 + (Math.random() - 0.5) * 30;
+      const y = boardH * 0.5 + Math.floor(evIdx / 3) * 180 + (Math.random() - 0.5) * 20;
+      const rotation = (Math.random() - 0.5) * 8;
+
+      card.style.left = `${x}px`;
+      card.style.top = `${y}px`;
+      card.style.transform = `rotate(${rotation}deg)`;
+
+      const evidenceId = `evidence-${evidenceCount}`;
+      card.id = `cork-${evidenceId}`;
+
+      card.innerHTML = `
+          <img src="${imageUrl}" alt="Evidence" onerror="this.style.display='none'">
+          <div class="card-label">EVIDENCE #${evidenceCount}</div>
+          <div class="card-clue">${clueText}</div>
+      `;
+
+      container.appendChild(card);
+
+      // Store position for potential red string connections
+      corkItems[evidenceId] = {
+        x: x + 80,
+        y: y + 6,
+        element: card
+      };
+
+      // Make draggable
+      makeDraggable(card, evidenceId);
+
+      // Animate entry with a more dramatic effect
+      card.style.opacity = '0';
+      card.style.transform = `rotate(${rotation}deg) scale(0.3)`;
+      requestAnimationFrame(() => {
+        card.style.transition = 'all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        card.style.opacity = '1';
+        card.style.transform = `rotate(${rotation}deg) scale(1)`;
+      });
+    }
+
+    function addEvidenceNode(imageUrl, clueText, round) {
+      const nodeId = `evidence_${evidenceCount}`;
+      if (visNodes && !visNodes.get(nodeId)) {
+        visNodes.add({
+          id: nodeId,
+          label: `EVIDENCE #${evidenceCount}`,
+          title: clueText + '\n\n' + imageUrl,
+          shape: 'star',
+          size: 25,
+          borderWidth: 3,
+          color: {
+            background: '#f1c40f',
+            border: '#e94560',
+            highlight: {background: '#ff6b6b', border: '#f1c40f'}
+          },
+          font: {color: '#f1c40f', size: 12, strokeWidth: 2, strokeColor: '#000'},
+          shadow: true
+        });
+      }
+    }
+
+    function addCorkBoardConnection(fromName, toName, relationship) {
+      const svg = document.getElementById('red-strings');
+      const from = corkItems[fromName];
+      const to = corkItems[toName];
+      if (!from || !to) return;
+
+      // Avoid duplicate lines
+      const existingId = `str-${fromName.replace(/[^a-zA-Z0-9]/g, '_')}-${toName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      if (document.getElementById(existingId)) return;
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', from.x);
+      line.setAttribute('y1', from.y);
+      line.setAttribute('x2', to.x);
+      line.setAttribute('y2', to.y);
+      line.setAttribute('data-from', fromName);
+      line.setAttribute('data-to', toName);
+      line.id = existingId;
+
+      // Animate: line draws itself
+      const length = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
+      line.style.strokeDasharray = length;
+      line.style.strokeDashoffset = length;
+      line.style.transition = 'stroke-dashoffset 0.8s ease-in-out';
+
+      svg.appendChild(line);
+      requestAnimationFrame(() => {
+        line.style.strokeDashoffset = '0';
+      });
+    }
+
+    function makeDraggable(element, name) {
+      let isDragging = false;
+      let startX, startY, origX, origY;
+
+      element.onmousedown = (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        origX = parseInt(element.style.left);
+        origY = parseInt(element.style.top);
+        element.style.cursor = 'grabbing';
+        element.style.zIndex = 100;
+        e.preventDefault();
+      };
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const newX = origX + dx;
+        const newY = origY + dy;
+        element.style.left = `${newX}px`;
+        element.style.top = `${newY}px`;
+        // Update stored position
+        corkItems[name].x = newX + 60;
+        corkItems[name].y = newY + 6;
+        // Update red strings
+        updateRedStrings(name);
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          element.style.cursor = 'grab';
+          element.style.zIndex = 2;
+        }
+      });
+    }
+
+    function updateRedStrings(name) {
+      const svg = document.getElementById('red-strings');
+      const lines = svg.querySelectorAll('line');
+      for (const line of lines) {
+        const from = line.getAttribute('data-from');
+        const to = line.getAttribute('data-to');
+        if (from === name && corkItems[from]) {
+          line.setAttribute('x1', corkItems[from].x);
+          line.setAttribute('y1', corkItems[from].y);
+        }
+        if (to === name && corkItems[to]) {
+          line.setAttribute('x2', corkItems[to].x);
+          line.setAttribute('y2', corkItems[to].y);
+        }
+      }
+    }
+
+    function updateRoundIndicator(current, total, done = false) {
+      const el = document.getElementById('round-indicator');
+      const st = document.getElementById('status-text');
+      if (done) {
+        el.textContent = 'CONSPIRACY MAPPED';
+        el.classList.add('complete');
+      } else if (current === 0) {
+        el.textContent = 'Starting...';
+        if (st) st.textContent = 'Connecting to agent...';
+      } else {
+        el.textContent = `Round ${current}/${total}`;
+        if (st) st.textContent = `Processing round ${current} of ${total}`;
+      }
+    }
+  </script>
+</body>
+</html>
